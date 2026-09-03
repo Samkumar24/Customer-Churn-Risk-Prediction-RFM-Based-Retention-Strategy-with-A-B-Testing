@@ -1,0 +1,45 @@
+# Virtual Environment
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Environment variables
+.env
+*.env
+
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# ML Models
+models/
+*.pkl
+*.joblib
+
+# ml flow
+mlflow.db
+mlruns/
+*.pkl
+
+# Dataset folders
+data/
+datasets/
+
+# Build files
+dist/
+build/
+
+# OS files
+Thumbs.db
+.DS_Store
+venv/
+.venv/
