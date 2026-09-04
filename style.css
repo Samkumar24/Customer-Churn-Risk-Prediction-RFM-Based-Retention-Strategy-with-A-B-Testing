@@ -1,0 +1,288 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --grape: #6F2DBD;
+    --amethyst: #A663CC;
+    --wisteria: #B298DC;
+    --columbia: #B8D0EB;
+    --celeste: #B9FAF8;
+}
+
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Hide default Streamlit chrome so it reads as a webpage, not a tool */
+#MainMenu, footer, header[data-testid="stHeader"] {
+    visibility: hidden;
+    height: 0;
+}
+
+.stApp {
+    background: linear-gradient(150deg, #F4F1FB 0%, #EAF6F6 55%, #E4FBFA 100%);
+}
+
+.block-container {
+    padding-top: 2rem;
+}
+
+h1, h2, h3 {
+    color: #3A1263;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+}
+
+p, label, .stMarkdown {
+    color: #46435A;
+}
+
+hr {
+    border-color: #E0D7F0 !important;
+}
+
+/* ------------------------------------------------------------ */
+/* HERO BANNER                                                    */
+/* ------------------------------------------------------------ */
+.hero {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: linear-gradient(120deg, var(--grape) 0%, var(--amethyst) 55%, var(--wisteria) 100%);
+    border-radius: 18px;
+    padding: 26px 30px;
+    margin-bottom: 22px;
+    box-shadow: 0 10px 28px rgba(111, 45, 189, 0.28);
+}
+.hero-icon {
+    font-size: 34px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 14px;
+    padding: 10px 14px;
+}
+.hero-title {
+    color: #FFFFFF;
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+.hero-subtitle {
+    color: rgba(255,255,255,0.88);
+    font-size: 14px;
+    margin-top: 2px;
+}
+
+/* ------------------------------------------------------------ */
+/* SIDEBAR                                                       */
+/* ------------------------------------------------------------ */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(200deg, #4B1F87 0%, var(--grape) 45%, var(--amethyst) 100%);
+    box-shadow: 2px 0 16px rgba(75, 31, 135, 0.25);
+}
+section[data-testid="stSidebar"] * {
+    color: #F3EEFB !important;
+}
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 4px 18px 4px;
+}
+.sidebar-brand-icon {
+    font-size: 26px;
+}
+.sidebar-brand-text {
+    font-size: 18px;
+    font-weight: 800;
+    color: #FFFFFF !important;
+}
+.sidebar-footer {
+    margin-top: 24px;
+    font-size: 11px;
+    opacity: 0.7;
+    line-height: 1.5;
+}
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label {
+    padding: 9px 12px;
+    border-radius: 10px;
+    transition: background-color 0.15s ease;
+    margin-bottom: 2px;
+}
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:hover {
+    background-color: rgba(255,255,255,0.12);
+}
+section[data-testid="stSidebar"] .stRadio input:checked + div {
+    font-weight: 700;
+}
+
+/* ------------------------------------------------------------ */
+/* METRIC CARDS (glassmorphism)                                   */
+/* ------------------------------------------------------------ */
+div[data-testid="stMetric"] {
+    background: rgba(255,255,255,0.75);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(178, 152, 220, 0.35);
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: 0 4px 14px rgba(111, 45, 189, 0.08);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+div[data-testid="stMetric"]:hover {
+    box-shadow: 0 8px 22px rgba(111, 45, 189, 0.14);
+    transform: translateY(-2px);
+}
+div[data-testid="stMetric"] label {
+    color: #7A6F94;
+    font-weight: 600;
+}
+div[data-testid="stMetric"] div {
+    color: var(--grape);
+    font-weight: 800;
+}
+
+/* ------------------------------------------------------------ */
+/* BUTTONS                                                        */
+/* ------------------------------------------------------------ */
+.stButton > button {
+    background: linear-gradient(135deg, var(--grape) 0%, var(--amethyst) 100%);
+    color: white;
+    border-radius: 10px;
+    border: none;
+    font-weight: 600;
+    padding: 8px 22px;
+    box-shadow: 0 4px 12px rgba(111, 45, 189, 0.3);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.stButton > button:hover {
+    box-shadow: 0 6px 18px rgba(111, 45, 189, 0.4);
+    transform: translateY(-1px);
+}
+
+/* ------------------------------------------------------------ */
+/* DATAFRAME / TABLES                                             */
+/* ------------------------------------------------------------ */
+div[data-testid="stDataFrame"] {
+    border: 1px solid rgba(178, 152, 220, 0.35);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(111, 45, 189, 0.06);
+}
+
+/* ------------------------------------------------------------ */
+/* CUSTOM CUSTOMER TABLE                                          */
+/* ------------------------------------------------------------ */
+.table-card {
+    background: rgba(255,255,255,0.85);
+    border: 1px solid rgba(178, 152, 220, 0.35);
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(111, 45, 189, 0.08);
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+.table-scroll {
+    max-height: 560px;
+    overflow-y: auto;
+}
+.custom-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+}
+.custom-table thead th {
+    position: sticky;
+    top: 0;
+    background: linear-gradient(120deg, var(--grape) 0%, var(--amethyst) 100%);
+    color: #FFFFFF;
+    text-align: left;
+    padding: 12px 16px;
+    font-weight: 600;
+    z-index: 1;
+}
+.custom-table tbody td {
+    padding: 11px 16px;
+    border-bottom: 1px solid #EDE7F7;
+    color: #3A3550;
+    vertical-align: middle;
+}
+.custom-table tbody tr:nth-child(even) {
+    background-color: rgba(185, 250, 248, 0.18);
+}
+.custom-table tbody tr:hover {
+    background-color: rgba(166, 99, 204, 0.10);
+}
+.custom-table .cid {
+    font-weight: 700;
+    color: var(--grape);
+    white-space: nowrap;
+}
+.custom-table .factors,
+.custom-table .action {
+    color: #55506B;
+    font-size: 13px;
+}
+
+/* Probability mini progress bar */
+.prob-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 130px;
+}
+.prob-bar {
+    flex: 1;
+    height: 7px;
+    border-radius: 6px;
+    background: #E9E4F5;
+    overflow: hidden;
+}
+.prob-fill {
+    height: 100%;
+    border-radius: 6px;
+}
+.prob-text {
+    font-weight: 700;
+    font-size: 12.5px;
+    min-width: 42px;
+    color: #3A3550;
+}
+
+/* Risk badges */
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.badge-red    { background: #FCEBEB; color: #C0392B; }
+.badge-orange { background: #FDF0E1; color: #B9600F; }
+.badge-yellow { background: #FBF3D6; color: #A8790A; }
+.badge-green  { background: #E9F7EF; color: #1E8449; }
+
+/* ------------------------------------------------------------ */
+/* FILE UPLOADER                                                  */
+/* ------------------------------------------------------------ */
+div[data-testid="stFileUploader"] {
+    border: 1.5px dashed var(--amethyst);
+    border-radius: 14px;
+    padding: 10px;
+    background: rgba(255,255,255,0.7);
+}
+
+/* ------------------------------------------------------------ */
+/* SELECT / TEXT INPUTS                                           */
+/* ------------------------------------------------------------ */
+div[data-baseweb="select"] > div,
+div[data-baseweb="input"] > div,
+.stTextInput > div > div {
+    border-radius: 10px !important;
+    border-color: #DDD2F0 !important;
+    background-color: rgba(255,255,255,0.8) !important;
+}
+
+/* ------------------------------------------------------------ */
+/* ALERT / INFO / WARNING BOXES                                   */
+/* ------------------------------------------------------------ */
+div[data-testid="stAlert"] {
+    border-radius: 12px;
+}
