@@ -3,6 +3,12 @@ import pandas as pd
 import requests
 
 
+def _clean_html(html: str) -> str:
+    """Streamlit's markdown renderer treats 4+ leading spaces as a code
+    block, so strip per-line indentation before rendering raw HTML."""
+    return "\n".join(line.lstrip() for line in html.strip().splitlines())
+
+
 # ============================================================
 # CONFIG
 # ============================================================
@@ -30,7 +36,6 @@ ACTION_MAP = {
 }
 
 DISPLAY_COLUMNS = ["customer_id", "churn_probability", "risk", "risk_factors", "action"]
-DISPLAY_HEADERS = ["Customer ID", "Churn Probability", "Risk", "Key Risk Factors", "Recommended Action"]
 
 
 # ============================================================
@@ -48,8 +53,7 @@ with open("style.css") as f:
 
 
 def hero(icon, title, subtitle):
-    st.markdown(
-        f"""
+    html = f"""
         <div class="hero">
             <div class="hero-icon">{icon}</div>
             <div>
@@ -57,9 +61,8 @@ def hero(icon, title, subtitle):
                 <div class="hero-subtitle">{subtitle}</div>
             </div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        """
+    st.markdown(_clean_html(html), unsafe_allow_html=True)
 
 
 UPLOAD_ILLUSTRATION = """
@@ -88,6 +91,9 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
+if "page" not in st.session_state:
+    st.session_state.page = "📁 Upload & Overview"
+
 page = st.sidebar.radio(
     "Navigation",
     [
@@ -96,6 +102,7 @@ page = st.sidebar.radio(
         "🔍 Customer Details",
         "🎯 Risk Segments",
     ],
+    key="page",
     label_visibility="collapsed",
 )
 
@@ -204,7 +211,13 @@ def score_via_api(df, api_url=API_URL):
     records = df[API_FEATURE_COLUMNS].to_dict(orient="records")
     response = requests.put(f"{api_url}/predict", json=records, timeout=60)
     response.raise_for_status()
-    return response.json()["prediction"]
+    body = response.json()
+    if "prediction" not in body:
+        raise RuntimeError(
+            f"API responded 200 OK but with no 'prediction' key. "
+            f"Actual response: {body}"
+        )
+    return body["prediction"]
 
 
 def enrich(df):
@@ -225,13 +238,62 @@ def enrich(df):
     return df
 
 
-def to_display_table(df):
-    """Trims any dataset — sample or uploaded — down to the five columns
-    marketing actually needs, with friendly headers."""
-    out = df[DISPLAY_COLUMNS].copy()
-    out["churn_probability"] = (out["churn_probability"] * 100).round(1).astype(str) + "%"
-    out.columns = DISPLAY_HEADERS
-    return out
+RISK_STYLE = {
+    "🔴 Immediate Risk": {"badge": "badge-red", "bar": "#C0392B"},
+    "🟠 Priority Risk": {"badge": "badge-orange", "bar": "#D9821B"},
+    "🟡 Targeted Risk": {"badge": "badge-yellow", "bar": "#C99A0A"},
+    "🟢 Low Risk": {"badge": "badge-green", "bar": "#1E8449"},
+}
+
+
+def render_customer_table(df, max_rows=50):
+    """Hand-built HTML table so risk gets a colored badge and churn
+    probability gets a mini progress bar — things st.dataframe can't do."""
+    shown = df.head(max_rows)
+
+    rows_html = []
+    for _, row in shown.iterrows():
+        style = RISK_STYLE.get(row["risk"], RISK_STYLE["🟢 Low Risk"])
+        pct = row["churn_probability"] * 100
+        rows_html.append(f"""
+            <tr>
+                <td class="cid">{row['customer_id']}</td>
+                <td>
+                    <div class="prob-wrap">
+                        <div class="prob-bar"><div class="prob-fill" style="width:{pct:.0f}%; background:{style['bar']};"></div></div>
+                        <span class="prob-text">{pct:.1f}%</span>
+                    </div>
+                </td>
+                <td><span class="badge {style['badge']}">{row['risk']}</span></td>
+                <td class="factors">{row['risk_factors']}</td>
+                <td class="action">{row['action']}</td>
+            </tr>
+        """)
+
+    table_html = f"""
+    <div class="table-card">
+        <div class="table-scroll">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Customer ID</th>
+                        <th>Churn Probability</th>
+                        <th>Risk</th>
+                        <th>Key Risk Factors</th>
+                        <th>Recommended Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {''.join(rows_html)}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    """
+    st.markdown(_clean_html(table_html), unsafe_allow_html=True)
+
+    if len(df) > max_rows:
+        st.caption(f"Showing {max_rows} of {len(df):,} customers.")
 
 
 # ============================================================
@@ -243,6 +305,9 @@ if "data" not in st.session_state:
 
 if "using_sample" not in st.session_state:
     st.session_state.using_sample = True
+
+if "uploaded_file_id" not in st.session_state:
+    st.session_state.uploaded_file_id = None
 
 
 # ============================================================
@@ -260,36 +325,68 @@ if page == "📁 Upload & Overview":
 
     uploaded_file = st.file_uploader(
         "Upload Customer CSV",
-        type=["csv"]
+        type=["csv"],
+        key="customer_csv"
     )
 
     if uploaded_file is not None:
 
-        raw_df = pd.read_csv(uploaded_file)
-        id_col_used = find_customer_id_column(raw_df)
-
-        if "churn_probability" not in raw_df.columns:
-            missing = [c for c in API_FEATURE_COLUMNS if c not in raw_df.columns]
-            if missing:
-                st.error(
-                    "This CSV has no 'churn_probability' column, and is missing "
-                    f"the columns the prediction API needs to compute one: {missing}"
-                )
-                st.stop()
-            try:
-                with st.spinner(f"Scoring {len(raw_df):,} customers via FastAPI..."):
-                    raw_df["churn_probability"] = score_via_api(raw_df)
-            except requests.RequestException as e:
-                st.error(f"Could not reach the prediction API at {API_URL}: {e}")
-                st.stop()
-
-        st.session_state.data = enrich(raw_df)
-        st.session_state.using_sample = False
-
-        st.success(
-            f"Successfully loaded {len(raw_df):,} customers "
-            f"(using '{id_col_used}' as customer_id)."
+        # Streamlit reruns the script whenever a widget changes.
+        # Use the file name + size to detect whether this is a new upload.
+        file_id = (
+            uploaded_file.name,
+            uploaded_file.size
         )
+
+        if st.session_state.get("uploaded_file_id") != file_id:
+
+            raw_df = pd.read_csv(uploaded_file)
+            id_col_used = find_customer_id_column(raw_df)
+
+            if "churn_probability" not in raw_df.columns:
+
+                missing = [
+                    c for c in API_FEATURE_COLUMNS
+                    if c not in raw_df.columns
+                ]
+
+                if missing:
+                    st.error(
+                        "This CSV has no 'churn_probability' column, and is "
+                        "missing the columns the prediction API needs to "
+                        f"compute one: {missing}"
+                    )
+                    st.stop()
+
+                try:
+                    with st.spinner(
+                        f"Scoring {len(raw_df):,} customers via FastAPI..."
+                    ):
+                        raw_df["churn_probability"] = score_via_api(raw_df)
+
+                except requests.RequestException as e:
+                    st.error(
+                        f"Could not reach the prediction API at {API_URL}: {e}"
+                    )
+                    st.stop()
+
+                except RuntimeError as e:
+                    st.error(str(e))
+                    st.stop()
+
+            # Save the processed dataframe in session state.
+            # All other dashboard pages read from this same dataframe.
+            st.session_state.data = enrich(raw_df)
+
+            # Remember this upload so the API is not called again
+            # just because the user changes tabs or another widget.
+            st.session_state.uploaded_file_id = file_id
+            st.session_state.using_sample = False
+
+            st.success(
+                f"Successfully loaded {len(raw_df):,} customers "
+                f"(using '{id_col_used}' as customer_id)."
+            )
 
     elif st.session_state.using_sample:
 
@@ -320,11 +417,7 @@ if page == "📁 Upload & Overview":
 
     st.subheader("Customer Overview")
 
-    st.dataframe(
-        to_display_table(df).head(20),
-        use_container_width=True,
-        hide_index=True
-    )
+    render_customer_table(df, max_rows=20)
 
 
 # ============================================================
@@ -359,11 +452,7 @@ elif page == "👥 Customer Risk":
 
     st.subheader(f"Customers Found: {len(df)}")
 
-    st.dataframe(
-        to_display_table(df),
-        use_container_width=True,
-        hide_index=True
-    )
+    render_customer_table(df)
 
 
 # ============================================================
@@ -493,8 +582,4 @@ elif page == "🎯 Risk Segments":
 
     st.subheader(f"{selected_segment} Customers")
 
-    st.dataframe(
-        to_display_table(segment_df),
-        use_container_width=True,
-        hide_index=True
-    )
+    render_customer_table(segment_df)
