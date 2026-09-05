@@ -25,9 +25,8 @@ API_FEATURE_COLUMNS = [
     "returns_made", "wishlist_items", "newsletter_subscribed"
 ]
 
-# What marketing should actually do for each risk tier — this is the
-# "Business Action" column from the decision framework, made explicit
-# so it shows up on every table instead of living only in someone's head.
+# What marketing should actually do for each risk tier — used as a
+# fallback when a customer has no computable RFM segment.
 ACTION_MAP = {
     "🔴 Immediate Risk": "Escalate to account manager — personal retention call this week",
     "🟠 Priority Risk": "Priority outreach — targeted retention offer",
@@ -35,7 +34,26 @@ ACTION_MAP = {
     "🟢 Low Risk": "Monitor — no action needed",
 }
 
-DISPLAY_COLUMNS = ["customer_id", "churn_probability", "risk", "risk_factors", "action"]
+# Raw behavioral columns needed to compute RFM scores from scratch.
+RFM_RAW_COLUMNS = ["total_spend_usd", "total_orders", "days_since_last_purchase"]
+RFM_SCORE_COLUMNS = ["R_score", "F_score", "M_score", "RFM_score"]
+
+# Reuses the same 4 badge colors as risk (red/orange/yellow/green) —
+# semantically: Champions=good(green), Can't Lose Them=urgent(red),
+# Lost/At Risk=concerning(orange), Promising=neutral(yellow).
+SEGMENT_BADGE = {
+    "🏆 Champions": "badge-green",
+    "🚨 Can't Lose Them": "badge-red",
+    "⚠️ Lost / At Risk": "badge-orange",
+    "🌱 Promising / Emerging": "badge-yellow",
+}
+
+SEGMENT_ACTION = {
+    "🏆 Champions": "Strengthen loyalty — personalized engagement",
+    "🚨 Can't Lose Them": "Immediate retention intervention — protect high-value customer",
+    "⚠️ Lost / At Risk": "Targeted low-cost win-back campaign",
+    "🌱 Promising / Emerging": "Maintain engagement — no immediate intervention",
+}
 
 
 # ============================================================
@@ -91,9 +109,6 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
-if "page" not in st.session_state:
-    st.session_state.page = "📁 Upload & Overview"
-
 page = st.sidebar.radio(
     "Navigation",
     [
@@ -102,7 +117,6 @@ page = st.sidebar.radio(
         "🔍 Customer Details",
         "🎯 Risk Segments",
     ],
-    key="page",
     label_visibility="collapsed",
 )
 
@@ -169,31 +183,6 @@ def get_risk(probability):
         return "🟢 Low Risk"
 
 
-def get_risk_factors(row):
-    # Uses row.get(...) with a default so this still works on uploaded
-    # files that don't have every one of these columns — those checks
-    # just never trigger instead of crashing the app.
-
-    factors = []
-
-    if row.get("days_since_last_purchase", 0) > 120:
-        factors.append("Long purchase inactivity")
-
-    if row.get("total_orders", 999) < 5:
-        factors.append("Low order frequency")
-
-    if row.get("returns_made", 0) >= 3:
-        factors.append("High returns")
-
-    if row.get("total_spend_usd", 999999) < 300:
-        factors.append("Low spending")
-
-    if len(factors) == 0:
-        factors.append("No major risk factors")
-
-    return ", ".join(factors)
-
-
 def find_customer_id_column(df):
     # Uploaded files won't always name the column exactly "customer_id" —
     # check the common variants, then fall back to the first column.
@@ -220,6 +209,44 @@ def score_via_api(df, api_url=API_URL):
     return body["prediction"]
 
 
+def add_rfm_scores(df):
+    """Computes R/F/M scores via quintile binning, same approach as your
+    RFM script. Skips recomputation if the CSV already has R_score,
+    F_score, M_score, RFM_score (e.g. an already-scored export)."""
+    if set(RFM_SCORE_COLUMNS).issubset(df.columns):
+        return df
+
+    if not all(c in df.columns for c in RFM_RAW_COLUMNS):
+        return df  # not enough raw data to compute RFM — leave it out
+
+    df = df.copy()
+    df["M_score"] = pd.qcut(df["total_spend_usd"], q=5, labels=[5, 4, 3, 2, 1], duplicates="drop").astype(int)
+    df["F_score"] = pd.qcut(df["total_orders"], q=5, labels=[1, 2, 3, 4, 5], duplicates="drop").astype(int)
+    df["R_score"] = pd.qcut(df["days_since_last_purchase"], q=5, labels=[1, 2, 3, 4, 5], duplicates="drop").astype(int)
+    df["RFM_score"] = df["R_score"] + df["F_score"] + df["M_score"]
+    return df
+
+
+def get_segment(row):
+    """High-value vs. churn-risk quadrant — the same 4-way split as your
+    RFM script. Needs RFM_score; returns '—' when it isn't available."""
+    rfm_score = row.get("RFM_score")
+    if pd.isna(rfm_score):
+        return "—"
+
+    rfm_score = int(rfm_score)
+    churn = row.get("churn_probability", 0)
+
+    if rfm_score >= 10 and churn < 0.50:
+        return "🏆 Champions"
+    elif rfm_score >= 10 and churn >= 0.50:
+        return "🚨 Can't Lose Them"
+    elif rfm_score < 10 and churn >= 0.50:
+        return "⚠️ Lost / At Risk"
+    else:
+        return "🌱 Promising / Emerging"
+
+
 def enrich(df):
     df = df.copy()
 
@@ -232,8 +259,15 @@ def enrich(df):
     else:
         df["risk"] = "🟢 Low Risk"
 
-    df["risk_factors"] = df.apply(get_risk_factors, axis=1)
-    df["action"] = df["risk"].map(ACTION_MAP)
+    df = add_rfm_scores(df)
+    df["segment"] = df.apply(get_segment, axis=1)
+
+    # Prefer the richer segment-based action; fall back to the risk-tier
+    # action when a customer has no computable segment.
+    df["action"] = df.apply(
+        lambda r: SEGMENT_ACTION.get(r["segment"], ACTION_MAP.get(r["risk"], "Monitor")),
+        axis=1,
+    )
 
     return df
 
@@ -246,18 +280,23 @@ RISK_STYLE = {
 }
 
 
-def render_customer_table(df, max_rows=50):
+def render_customer_table(df):
     """Hand-built HTML table so risk gets a colored badge and churn
-    probability gets a mini progress bar — things st.dataframe can't do."""
-    shown = df.head(max_rows)
+    probability gets a mini progress bar — things st.dataframe can't do.
+    Renders every row passed in (no cap)."""
+    shown = df
 
     rows_html = []
     for _, row in shown.iterrows():
         style = RISK_STYLE.get(row["risk"], RISK_STYLE["🟢 Low Risk"])
         pct = row["churn_probability"] * 100
+        segment = row.get("segment", "—")
+        segment_badge = SEGMENT_BADGE.get(segment, "badge-orange" if segment != "—" else "")
+        rfm_display = int(row["RFM_score"]) if pd.notna(row.get("RFM_score")) else "—"
         rows_html.append(f"""
             <tr>
                 <td class="cid">{row['customer_id']}</td>
+                <td class="rfm">{rfm_display}</td>
                 <td>
                     <div class="prob-wrap">
                         <div class="prob-bar"><div class="prob-fill" style="width:{pct:.0f}%; background:{style['bar']};"></div></div>
@@ -265,7 +304,7 @@ def render_customer_table(df, max_rows=50):
                     </div>
                 </td>
                 <td><span class="badge {style['badge']}">{row['risk']}</span></td>
-                <td class="factors">{row['risk_factors']}</td>
+                <td>{f'<span class="badge {segment_badge}">{segment}</span>' if segment != "—" else "—"}</td>
                 <td class="action">{row['action']}</td>
             </tr>
         """)
@@ -277,9 +316,10 @@ def render_customer_table(df, max_rows=50):
                 <thead>
                     <tr>
                         <th>Customer ID</th>
+                        <th>RFM Score</th>
                         <th>Churn Probability</th>
                         <th>Risk</th>
-                        <th>Key Risk Factors</th>
+                        <th>Segment</th>
                         <th>Recommended Action</th>
                     </tr>
                 </thead>
@@ -292,9 +332,6 @@ def render_customer_table(df, max_rows=50):
     """
     st.markdown(_clean_html(table_html), unsafe_allow_html=True)
 
-    if len(df) > max_rows:
-        st.caption(f"Showing {max_rows} of {len(df):,} customers.")
-
 
 # ============================================================
 # SESSION STATE — persists the working dataset across pages
@@ -305,9 +342,6 @@ if "data" not in st.session_state:
 
 if "using_sample" not in st.session_state:
     st.session_state.using_sample = True
-
-if "uploaded_file_id" not in st.session_state:
-    st.session_state.uploaded_file_id = None
 
 
 # ============================================================
@@ -325,68 +359,39 @@ if page == "📁 Upload & Overview":
 
     uploaded_file = st.file_uploader(
         "Upload Customer CSV",
-        type=["csv"],
-        key="customer_csv"
+        type=["csv"]
     )
 
     if uploaded_file is not None:
 
-        # Streamlit reruns the script whenever a widget changes.
-        # Use the file name + size to detect whether this is a new upload.
-        file_id = (
-            uploaded_file.name,
-            uploaded_file.size
+        raw_df = pd.read_csv(uploaded_file)
+        id_col_used = find_customer_id_column(raw_df)
+
+        if "churn_probability" not in raw_df.columns:
+            missing = [c for c in API_FEATURE_COLUMNS if c not in raw_df.columns]
+            if missing:
+                st.error(
+                    "This CSV has no 'churn_probability' column, and is missing "
+                    f"the columns the prediction API needs to compute one: {missing}"
+                )
+                st.stop()
+            try:
+                with st.spinner(f"Scoring {len(raw_df):,} customers via FastAPI..."):
+                    raw_df["churn_probability"] = score_via_api(raw_df)
+            except requests.RequestException as e:
+                st.error(f"Could not reach the prediction API at {API_URL}: {e}")
+                st.stop()
+            except RuntimeError as e:
+                st.error(str(e))
+                st.stop()
+
+        st.session_state.data = enrich(raw_df)
+        st.session_state.using_sample = False
+
+        st.success(
+            f"Successfully loaded {len(raw_df):,} customers "
+            f"(using '{id_col_used}' as customer_id)."
         )
-
-        if st.session_state.get("uploaded_file_id") != file_id:
-
-            raw_df = pd.read_csv(uploaded_file)
-            id_col_used = find_customer_id_column(raw_df)
-
-            if "churn_probability" not in raw_df.columns:
-
-                missing = [
-                    c for c in API_FEATURE_COLUMNS
-                    if c not in raw_df.columns
-                ]
-
-                if missing:
-                    st.error(
-                        "This CSV has no 'churn_probability' column, and is "
-                        "missing the columns the prediction API needs to "
-                        f"compute one: {missing}"
-                    )
-                    st.stop()
-
-                try:
-                    with st.spinner(
-                        f"Scoring {len(raw_df):,} customers via FastAPI..."
-                    ):
-                        raw_df["churn_probability"] = score_via_api(raw_df)
-
-                except requests.RequestException as e:
-                    st.error(
-                        f"Could not reach the prediction API at {API_URL}: {e}"
-                    )
-                    st.stop()
-
-                except RuntimeError as e:
-                    st.error(str(e))
-                    st.stop()
-
-            # Save the processed dataframe in session state.
-            # All other dashboard pages read from this same dataframe.
-            st.session_state.data = enrich(raw_df)
-
-            # Remember this upload so the API is not called again
-            # just because the user changes tabs or another widget.
-            st.session_state.uploaded_file_id = file_id
-            st.session_state.using_sample = False
-
-            st.success(
-                f"Successfully loaded {len(raw_df):,} customers "
-                f"(using '{id_col_used}' as customer_id)."
-            )
 
     elif st.session_state.using_sample:
 
@@ -403,8 +408,9 @@ if page == "📁 Upload & Overview":
     total_customers = len(df)
     high_risk = len(df[df["churn_probability"] >= 0.70])
     average_risk = df["churn_probability"].mean() * 100
+    has_rfm = "RFM_score" in df.columns and df["RFM_score"].notna().any()
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.metric("👥 Total Customers", f"{total_customers:,}")
@@ -415,9 +421,12 @@ if page == "📁 Upload & Overview":
     with col3:
         st.metric("📊 Average Churn Risk", f"{average_risk:.1f}%")
 
+    with col4:
+        st.metric("📐 Average RFM Score", f"{df['RFM_score'].mean():.1f}" if has_rfm else "—")
+
     st.subheader("Customer Overview")
 
-    render_customer_table(df, max_rows=20)
+    render_customer_table(df)
 
 
 # ============================================================
@@ -481,14 +490,12 @@ elif page == "🔍 Customer Details":
     with col1:
         st.metric("Churn Probability", f"{customer['churn_probability'] * 100:.1f}%")
         st.markdown(f"### {customer['risk']}")
+        if customer.get("segment", "—") != "—":
+            st.markdown(f"**Segment:** {customer['segment']}")
 
     with col2:
         st.subheader("🎯 Recommended Action")
         st.info(customer["action"])
-
-        st.subheader("⚠️ Key Risk Factors")
-        for factor in customer["risk_factors"].split(", "):
-            st.warning(factor)
 
     # --------------------------------------------------------
     # CUSTOMER PROFILE
@@ -574,7 +581,7 @@ elif page == "🎯 Risk Segments":
     # --------------------------------------------------------
 
     selected_segment = st.selectbox(
-        "Select Segment",
+        "Select Risk Level",
         ["🔴 Immediate Risk", "🟠 Priority Risk", "🟡 Targeted Risk", "🟢 Low Risk"]
     )
 

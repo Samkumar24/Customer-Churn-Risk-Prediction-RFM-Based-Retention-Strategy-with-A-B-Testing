@@ -181,6 +181,7 @@ div[data-testid="stDataFrame"] {
 .table-scroll {
     max-height: 560px;
     overflow-y: auto;
+    overflow-x: auto;
 }
 .custom-table {
     width: 100%;
@@ -213,6 +214,11 @@ div[data-testid="stDataFrame"] {
     font-weight: 700;
     color: var(--grape);
     white-space: nowrap;
+}
+.custom-table .rfm {
+    font-weight: 700;
+    color: #55506B;
+    text-align: center;
 }
 .custom-table .factors,
 .custom-table .action {
