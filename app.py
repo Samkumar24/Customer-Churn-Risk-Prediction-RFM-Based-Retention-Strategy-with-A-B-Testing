@@ -13,7 +13,7 @@ def _clean_html(html: str) -> str:
 # CONFIG
 # ============================================================
 
-API_URL = "http://localhost:8000"
+API_URL = "http://13.232.111.36:8000"
 
 # Must match fast_api.py's Customer_data schema exactly — these are the
 # columns pulled from an uploaded CSV and sent to /predict.

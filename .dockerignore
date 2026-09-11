@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment / secrets
+.env
+.env.*
+
+# Local model files
+model.pkl
+*.pkl
+
+# Git
+.git/
+.gitignore
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Tests / cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+.venv/
+__pycache__/
+.git/
+.vscode/
+.env
+model.pkl
+mlruns/
+mlflow.db
+*.ipynb
+*.pyc

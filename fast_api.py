@@ -1,9 +1,13 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
 from io import BytesIO
-
-import mlflow
+import cloudpickle
 import pandas as pd
+import os
+import boto3
+
+
+
 
 
 # ============================================================
@@ -12,32 +16,82 @@ import pandas as pd
 
 app = FastAPI(title="Churn Prediction API")
 
-
+BUCKET_NAME = "churn-prediction-model-mlops-2026"
+S3_MODEL_KEY = "models/model.pkl" 
+LOCAL_MODEL_PATH = "model.pkl" 
 # ============================================================
-# 2. MLflow CONFIGURATION
+# 1. CREATE FASTAPI APP
 # ============================================================
 
-# For local development, this is your local MLflow server.
-# Later, when using SageMaker-hosted MLflow, replace this
-# with your actual remote MLflow tracking URI.
-
-mlflow.set_tracking_uri("http://localhost:5000")
-
-
-production_model_name = "Balanced_Random_forest"
-
-model_uri = f"models:/{production_model_name}@champion"
-
-model = mlflow.sklearn.load_model(model_uri)
+app = FastAPI(
+    title="Churn Prediction API",
+    version="1.0.0"
+)
 
 
 # ============================================================
-# 3. S3 CONFIGURATION
+# 2. S3 CONFIGURATION
 # ============================================================
 
+BUCKET_NAME = "churn-prediction-model-mlops-2026"
 
-BUCKET_NAME = "churn-prediction-monitoring"
+S3_MODEL_KEY = "models/model.pkl"
 
+LOCAL_MODEL_PATH = "model.pkl"
+
+
+# ============================================================
+# 3. DOWNLOAD MODEL FROM S3
+# ============================================================
+
+def download_model_from_s3():
+
+    s3 = boto3.client("s3")
+
+    if not os.path.exists(LOCAL_MODEL_PATH):
+
+        print("Downloading model from S3...")
+
+        s3.download_file(
+            BUCKET_NAME,
+            S3_MODEL_KEY,
+            LOCAL_MODEL_PATH
+        )
+
+        print("Model downloaded successfully!")
+
+    else:
+
+        print("Model already exists locally.")
+
+
+# ============================================================
+# 4. LOAD MODEL
+# ============================================================
+
+try:
+
+    download_model_from_s3()
+
+    print("Loading model...")
+
+    with open(LOCAL_MODEL_PATH, "rb") as f:
+
+        model = cloudpickle.load(f)
+
+    print("Model loaded successfully!")
+
+except Exception as e:
+
+    print("ERROR loading model:")
+    print("=" * 60)
+    print("MODEL LOADING FAILED")
+    print(type(e).__name__)
+    print(str(e))
+    print("=" * 60)
+    raise 
+
+    
 
 
 # 5. CUSTOMER DATA SCHEMA
@@ -87,7 +141,7 @@ def home():
 def model_info():
 
     return {
-        "model": production_model_name,
+        #"model": production_model_name,
         "alias": "champion",
         "status": "loaded"
     }
