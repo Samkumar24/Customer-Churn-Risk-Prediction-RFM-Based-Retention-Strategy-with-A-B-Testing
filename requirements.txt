@@ -6,3 +6,6 @@ cloudpickle==3.1.2
 python-multipart==0.0.32
 scikit-learn==1.6.1
 imbalanced-learn==0.14.2
+streamlit==1.63.0
+pandas==2.3.3
+requests==2.34.2
