@@ -2,12 +2,13 @@ From python:3.11.9-slim
 
 WORKDIR /app
 
-COPY requirements-fastapi.txt .
+COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY fast_api.py .
 COPY streamlit_app.py .
+COPY style.css .
 
 EXPOSE 8000 
 EXPOSE 8501
