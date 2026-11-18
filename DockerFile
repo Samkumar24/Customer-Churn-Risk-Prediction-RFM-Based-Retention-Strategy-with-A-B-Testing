@@ -13,7 +13,5 @@ COPY style.css .
 EXPOSE 8000 
 EXPOSE 8501
 
-CMD ["uvicorn", "fast_api:app", "--host", "0.0.0.0", "--port", "8000"]
-CMD ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
-
+CMD ["sh", "-c", "uvicorn fast_api:app --host 0.0.0.0 --port 8000 & streamlit run streamlit_app.py --server.port=8501 --server.address=0.0.0.0"]
 
