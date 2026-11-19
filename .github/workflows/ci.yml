@@ -1,16 +1,16 @@
-name : CI 
+name: CI
 
 on:
   push:
-    branches:
-      - main
-  woekflow_dispatch:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: # Enables manual runs from the GitHub UI
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-      - name: Run Script
-        run:  echo "Running script..." && python streamlit_app.py
+      - name: Run script
+        run: echo "Triggered manually or automatically on ${{ github.sha }}"
