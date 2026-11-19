@@ -220,9 +220,9 @@ def add_rfm_scores(df):
         return df  # not enough raw data to compute RFM — leave it out
 
     df = df.copy()
-    df["M_score"] = pd.qcut(df["total_spend_usd"], q=5, labels=[5, 4, 3, 2, 1], duplicates="drop").astype(int)
+    df["M_score"] = pd.qcut(df["total_spend_usd"], q=5, labels=[1, 2, 3, 4, 5], duplicates="drop").astype(int)
     df["F_score"] = pd.qcut(df["total_orders"], q=5, labels=[1, 2, 3, 4, 5], duplicates="drop").astype(int)
-    df["R_score"] = pd.qcut(df["days_since_last_purchase"], q=5, labels=[1, 2, 3, 4, 5], duplicates="drop").astype(int)
+    df["R_score"] = pd.qcut(df["days_since_last_purchase"], q=5, labels=[5,4,3,2,1], duplicates="drop").astype(int)
     df["RFM_score"] = df["R_score"] + df["F_score"] + df["M_score"]
     return df
 
