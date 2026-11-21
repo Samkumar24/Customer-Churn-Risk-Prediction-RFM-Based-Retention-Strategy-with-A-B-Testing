@@ -275,3 +275,133 @@ flowchart LR
 | **Next: A/B testing** | Randomised retention experiments: does contacting "Save now" customers actually reduce churn, and by how much, versus a control group? That turns *predicted* value into *measured* uplift |
 
 ---
+# 🧪 A/B Test: Does a 10% Offer Reduce Customer Churn?
+
+> **TL;DR:** ✅ Yes. The offer cut 60-day churn from **76.6% → 71.2%** (−5.4 pp, p = 0.029). It's statistically significant, but profitability is still untested.
+
+---
+
+## 🎯 1. Business Problem
+
+- 📉 About **1 in 5 customers churn**, and the retention budget is limited.
+- 🤖 The churn model flags **high-risk customers (score ≥ 0.70)**.
+- ❓ **Question:** Does a **10% offer** to these customers reduce churn vs. doing nothing?
+- 🚦 **Decision:** Roll the offer out to high-risk customers, or don't.
+
+---
+
+## 📏 2. Setup
+
+| Item | Choice |
+|---|---|
+| 👥 Population | High-risk customers (score ≥ 0.70) |
+| 🎲 Randomisation | Per customer, 50/50 coin flip |
+| 🎁 Treatment | 10% offer |
+| 🚫 Control | No offer (business as usual) |
+| ⏱️ Outcome window | 60 days after the offer |
+| 📊 Success metric | **60-day churn rate** (`churned_60d`, 1 = churned) |
+| 🔍 Analysis | Intention-to-treat (analyse everyone as assigned) |
+| 🛑 Stopping rule | Fixed sample, no peeking |
+
+```
+High-risk customers (score ≥ 0.70)
+          │  random 50/50
+    ┌─────┴─────┐
+ 10% offer    No offer
+    │             │
+60-day churn  60-day churn  →  compare
+```
+
+---
+
+## 🧮 3. Test Parameters
+
+| Parameter | Value | Meaning |
+|---|---|---|
+| H₀ | No difference in churn | The offer does nothing |
+| H₁ | Churn differs | The offer changes churn |
+| α (significance) | **0.05** | 5% risk of a false alarm |
+| Power | **80%** | 80% chance to detect a real effect |
+| MDE | **7 pp** (80% → 73%) | Smallest effect worth caring about |
+| Planned sample | ~**575 per arm** | Needed for the above |
+| Test used | Two-sided two-proportion z-test | |
+
+---
+
+## 🗂️ 4. Data Check
+
+- 📄 **1,266 customers**, 7 columns
+- ✅ No missing values
+- ✅ No duplicate rows or customer IDs
+- 📦 Group sizes (both above the planned 575):
+
+| Group | Customers | Share |
+|---|---:|---:|
+| 🚫 Control | 637 | 50.32% |
+| 🎁 Treatment | 629 | 49.68% |
+
+---
+
+## ⚖️ 5. Sanity Check: Sample Ratio Mismatch (SRM)
+
+Are the group sizes close to the planned 50/50?
+
+- Chi-square = **0.0506**, p = **0.8221**
+- Rule: p < 0.001 means stop and investigate
+- ✅ **PASS**: the split is fine.
+
+---
+
+## 📊 6. Results
+
+| Metric | 🚫 Control | 🎁 Treatment |
+|---|---:|---:|
+| Customers | 637 | 629 |
+| Churned | 488 | 448 |
+| **Churn rate** | **76.61%** | **71.22%** |
+
+```
+Control    ████████████████████████████████████████  76.6%
+Treatment  █████████████████████████████████████     71.2%
+```
+
+| Stat | Value |
+|---|---|
+| Absolute difference | **−5.38 pp** |
+| Relative reduction | **~7.0%** |
+| z-statistic | −2.182 |
+| p-value | **0.0291** |
+| 95% CI (difference) | **[−10.19, −0.55] pp** |
+
+✅ p < 0.05, so we **reject H₀**.
+✅ The CI doesn't include 0, so the effect is real at the 5% level.
+
+---
+
+## ✅ 7. Conclusion
+
+- 🎉 The 10% offer **significantly reduced 60-day churn**.
+- 📉 About **5 fewer customers churn per 100 offers**.
+
+### ⚠️ Caveats
+
+- 🎯 The observed drop (5.4 pp) is **smaller than the 7 pp MDE** we planned for.
+- 📏 The CI is **wide**: the true effect could be anywhere from ~0.5 pp to ~10 pp.
+- 💰 **Cost not yet considered.** A 5 pp drop may or may not pay for the discount.
+- 🧪 The planned **balance / selection-bias check (SMD < 0.10)** is not run in the notebook yet.
+- 🧬 The dataset is **simulated**.
+
+---
+
+## 🚀 8. Next Steps
+
+1. 🧪 Run the **SMD balance check** on `model_score`, `avg_review_score`, `rfm_score`, `enroll_week`.
+2. 💵 Add **money metrics**: margin, cost per saved customer, ROI.
+3. 🔬 Check **sub-segments** (e.g. by RFM score) to see who responds most.
+4. 🚦 Make the rollout call once the economics are clear.
+
+---
+
+## 🛠️ Tools Used
+
+`Python` · `pandas` · `numpy` · `scipy` · `statsmodels` · `seaborn` · `matplotlib`
