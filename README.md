@@ -1,3 +1,6 @@
+<img width="800" height="800" alt="Pipeline Blueprint" src="https://github.com/user-attachments/assets/6d2cc879-ca32-450a-9334-0a6926f360a5" />
+
+<img width="1672" height="941" alt="AWS ECR CI_CD Deployment Workflow" src="https://github.com/user-attachments/assets/b40fe0d0-3aa8-463d-814b-0a7b25e543a5" />
 # Customer Churn Prediction & Retention Prioritisation
 
 > An end-to-end ML system that predicts **which customers are about to churn**, ranks them by **how valuable they are (RFM)**, and tells the retention team **who to call first**. Tracked in MLflow, packaged with Docker, served via FastAPI + Streamlit on AWS EC2.
